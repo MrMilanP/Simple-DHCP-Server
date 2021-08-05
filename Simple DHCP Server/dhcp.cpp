@@ -14,6 +14,31 @@ int Dhcp::getX()
 	return x;
 }
 
+void Dhcp::parseOptions(u_char options[])
+{
+	u_char packet_type = options[6];
+
+	switch (packet_type)
+	{
+
+	case DHCPDISCOVER:
+		puts("DHCPDISCOVER");
+		break;
+
+	case DHCPREQUEST:
+		puts("DHCPREQUEST");
+		break;
+
+	case DHCPRELEASE:
+
+		break;
+
+	default:
+		break;
+	}
+
+}
+
 Dhcp::Dhcp()
 {
 	//Dhcp_packet d;
@@ -73,7 +98,7 @@ Dhcp::Dhcp()
 		//printf("Data Len: %d\n", strlen( buf));
 		//int len = strlen(buf);
 		for (int i = 0; i < recv_len; i++) {
-			printf("Data[%d] : %x\n",i,  buf[i]);
+			printf("Data[%d] : %02X\n",i,  buf[i]);
 		};
 
 		struct Dhcp_packet dhcp_packet ;
@@ -86,7 +111,18 @@ Dhcp::Dhcp()
 
 		printf("dhcp_packet.hlen: %d\n", dhcp_packet.hlen);
 
-		printf("%02X:%02X:%02X:%02X:%02X:%02X", dhcp_packet.chaddr[0], dhcp_packet.chaddr[1], dhcp_packet.chaddr[2], dhcp_packet.chaddr[3], dhcp_packet.chaddr[4], dhcp_packet.chaddr[5]);
+		printf("%02X:%02X:%02X:%02X:%02X:%02X\n", dhcp_packet.chaddr[0], dhcp_packet.chaddr[1], dhcp_packet.chaddr[2], dhcp_packet.chaddr[3], dhcp_packet.chaddr[4], dhcp_packet.chaddr[5]);
+
+		printf("%02X %02X %02X %02X\n", dhcp_packet.options[0], dhcp_packet.options[1], dhcp_packet.options[2], dhcp_packet.options[3]);
+
+		if (recv_len > 240) {
+			//Check did magic cookie exist
+			if ((dhcp_packet.options[0] == 0x63) && (dhcp_packet.options[1] == 0x82) && (dhcp_packet.options[2] == 0x53) && (dhcp_packet.options[3] == 0x63)){
+				puts("Magic cookie!!!");
+
+				parseOptions(dhcp_packet.options);
+			}
+		}
 
 		//if (dhcp_packet) {
 		//	free(dhcp_packet);

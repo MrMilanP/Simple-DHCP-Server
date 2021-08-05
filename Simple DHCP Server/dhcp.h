@@ -25,6 +25,16 @@
 #define SERVER_PORT 67	
 #define CLIENT_PORT 68
 
+
+#define DHCPDISCOVER          0x01
+#define DHCPOFFER             0x02
+#define DHCPREQUEST           0x03
+#define DHCPDECLINE           0x04
+#define DHCPACK               0x05
+#define DHCPNAK               0x06
+#define DHCPRELEASE           0x07
+#define DHCPINFORM            0x08
+
 #define DHCP_PADDING          0x00
 #define DHCP_SUBNET           0x01
 #define DHCP_TIME_OFFSET      0x02 /* (localtime - UTC_time) in seconds. signed */
@@ -98,27 +108,23 @@ class Dhcp
 			u_char chaddr[16];	//28
 			u_char sname[64];	//44
 			u_char file[128];	//108
-			u_char options[DHCP_MIN_OPTION_LEN];//216			
+			u_char options[DHCP_MIN_OPTION_LEN];//236			
 		} ;
 
-		struct Dhcp_options
-		{
-			BYTE pbMagicCookie[4];
-			BYTE pbMessageType[3];
-			BYTE pbLeaseTime[6];
-			BYTE pbSubnetMask[6];
-			BYTE pbServerID[6];
-			BYTE bEND;
-		};
+		void parseOptions(u_char options[]);
+
+
 
 	public:
+
+		Dhcp_packet dhcp_packet;
+
+		Dhcp();
 
 		void setX(int i);
 
 		int getX();
 
-		Dhcp_packet dhcp_packet;
 
-		Dhcp();
 };
 
