@@ -24,7 +24,7 @@ Simple DHCP Server je jednostavan DHCP server napisan u C++. Ovaj server podrža
 
 1. Klonirajte repo:
    ```bash
-   git clone https://your-repo-url.git
+   git clone https://github.com/MrMilanP/Simple-DHCP-Server.git
    cd Simple-DHCP-Server
    ```
 2. Otvorite `Simple DHCP Server.vcxproj` u Visual Studio-u.
@@ -34,7 +34,7 @@ Simple DHCP Server je jednostavan DHCP server napisan u C++. Ovaj server podrža
 
 1. Klonirajte repo:
    ```bash
-   git clone https://your-repo-url.git
+   git clone https://github.com/MrMilanP/Simple-DHCP-Server.git
    cd Simple-DHCP-Server
    ```
 2. U root direktorijumu projekta kreirajte Makefile:
