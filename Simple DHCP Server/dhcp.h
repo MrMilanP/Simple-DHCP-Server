@@ -116,7 +116,5 @@ public:
     Dhcp_packet dhcp_packet;
 
     Dhcp();
-
-    void setX(int i);
-    int getX();
+    void listen();
 };
