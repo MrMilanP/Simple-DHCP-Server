@@ -1,9 +1,13 @@
 #include <iostream>
 #include <cstring>
 #include <stdexcept>
+#include <string>
+#include <sstream>
 
 #ifdef _WIN32
+    #include <ws2tcpip.h>
     #include <winsock2.h>
+    #include <cstdint>
     #pragma comment(lib, "ws2_32.lib") // Linkovanje Winsock biblioteke na Windows-u
     typedef int socklen_t;  // Definisanje socklen_t za kompatibilnost sa Windows-om
 #else
@@ -29,13 +33,15 @@ struct Dhcp_packet {
     u_char htype;             // Tip hardverske adrese
     u_char hlen;              // Dužina hardverske adrese
     u_char hops;              // Hops (broj "skokova")
-    u_int32_t xid;            // Transaction ID (identifikacija transakcije)
-    u_short secs;             // Sekunde protekle od početka
-    u_short flags;            // Zastavice (flags)
-    u_int32_t ciaddr;         // Klijentova IP adresa (Client IP Address)
-    u_int32_t yiaddr;         // "Tvoja" IP adresa (Your IP Address)
-    u_int32_t siaddr;         // Sledeća serverska IP adresa (Next Server IP Address)
-    u_int32_t giaddr;         // IP adresa relay agenta (Gateway IP Address)
+
+    uint32_t xid;             // Transaction ID (identifikacija transakcije)
+    uint16_t secs;            // Sekunde protekle od početka
+    uint16_t flags;           // Zastavice (flags)
+    uint32_t ciaddr;          // Klijentova IP adresa (Client IP Address)
+    uint32_t yiaddr;          // "Tvoja" IP adresa (Your IP Address)
+    uint32_t siaddr;          // Sledeća serverska IP adresa (Next Server IP Address)
+    uint32_t giaddr;          // IP adresa relay agenta (Gateway IP Address)
+
     u_char chaddr[16];        // Hardverska adresa klijenta (Client Hardware Address)
     u_char sname[64];         // Ime servera (Server Name)
     u_char file[128];         // Naziv boot fajla (Boot File Name)
@@ -103,13 +109,24 @@ void Dhcp::listen() {
     }
 }
 
+std::string ipToString(struct in_addr ipAddr) {
+    char buffer[INET_ADDRSTRLEN];  // Buffer za string IP adrese
+    if (inet_ntop(AF_INET, &ipAddr, buffer, sizeof(buffer))) {
+        return std::string(buffer);  // Vraća string IP adrese
+    }
+    else {
+        return "Invalid IP";  // U slučaju greške
+    }
+}
+
 void Dhcp::receivePacket() {
     memset(buf, '\0', BUFLEN); // Briše prethodni sadržaj bafera
     recv_len = recvfrom(s, buf, BUFLEN, 0, (struct sockaddr*)&si_other, &slen); // Prima podatke sa mreže
     if (recv_len == SOCKET_ERROR) {
         throw std::runtime_error("recvfrom() nije uspeo");
     }
-    std::cout << "Paket primljen od " << inet_ntoa(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << std::endl; // Ispisuje ko je poslao paket
+    std::cout << "Paket primljen od " << ipToString(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << std::endl;
+
 }
 
 bool Dhcp::isValidDhcpPacket(byte* buffer) {
@@ -174,6 +191,9 @@ void Dhcp::cleanupSockets() {
 }
 
 Dhcp::~Dhcp() {
+#ifdef _WIN32
     cleanupSockets(); // Čisti socket resurse prilikom destrukcije objekta
+#else
     close(s); // Zatvara socket
+#endif
 }
