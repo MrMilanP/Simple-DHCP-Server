@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
+#include <cstring>
 
 #ifdef _WIN32
     #include <ws2tcpip.h>
@@ -20,55 +21,7 @@
     typedef int SOCKET; // Na Linux-u socket je samo int, pa definisemo SOCKET kao int
 #endif
 
-#define SERVER_PORT 67 // DHCP port na kojem server sluša
-#define BUFLEN 512 // Maksimalna dužina bafera za primanje podataka
-#define DHCPDISCOVER 1 // Tip DHCP DISCOVER paketa
-#define DHCPREQUEST 3 // Tip DHCP REQUEST paketa
-
-typedef unsigned char u_char; // Definišemo u_char kao skraćenicu za unsigned char
-
-// Struktura za DHCP paket (uključuje standardna polja DHCP protokola)
-struct Dhcp_packet {
-    u_char op;                // Operacioni kod poruke / tip poruke
-    u_char htype;             // Tip hardverske adrese
-    u_char hlen;              // Dužina hardverske adrese
-    u_char hops;              // Hops (broj "skokova")
-
-    uint32_t xid;             // Transaction ID (identifikacija transakcije)
-    uint16_t secs;            // Sekunde protekle od početka
-    uint16_t flags;           // Zastavice (flags)
-    uint32_t ciaddr;          // Klijentova IP adresa (Client IP Address)
-    uint32_t yiaddr;          // "Tvoja" IP adresa (Your IP Address)
-    uint32_t siaddr;          // Sledeća serverska IP adresa (Next Server IP Address)
-    uint32_t giaddr;          // IP adresa relay agenta (Gateway IP Address)
-
-    u_char chaddr[16];        // Hardverska adresa klijenta (Client Hardware Address)
-    u_char sname[64];         // Ime servera (Server Name)
-    u_char file[128];         // Naziv boot fajla (Boot File Name)
-    u_char options[312];      // Polje za opcionalne parametre (Options)
-};
-
-class Dhcp {
-public:
-    Dhcp(); // Konstruktor
-    ~Dhcp(); // Destruktor
-    void listen(); // Metoda koja osluškuje DHCP pakete
-
-private:
-    SOCKET s; // Socket deskriptor
-    struct sockaddr_in server, si_other; // Strukture za adresiranje servera i klijenta
-    char buf[BUFLEN]; // Bafer za primanje paketa
-    socklen_t slen; // Dužina adrese
-    int recv_len; // Dužina primljenog paketa
-
-    void receivePacket(); // Metoda za primanje DHCP paketa
-    bool isValidDhcpPacket(byte* buffer); // Proverava da li je validan DHCP paket
-    void handleDhcpPacket(); // Obradjuje primljeni DHCP paket
-    void parseOptions(u_char options[]); // Parsira opcije iz DHCP paketa
-
-    void initializeSockets(); // Inicijalizuje socket (specifično za Windows)
-    void cleanupSockets(); // Čisti socket resurse (specifično za Windows)
-};
+#include "dhcp.h"
 
 Dhcp::Dhcp() {
     slen = sizeof(si_other); // Postavlja dužinu strukture adrese klijenta
@@ -121,7 +74,7 @@ std::string ipToString(struct in_addr ipAddr) {
 
 void Dhcp::receivePacket() {
     memset(buf, '\0', BUFLEN); // Briše prethodni sadržaj bafera
-    recv_len = recvfrom(s, buf, BUFLEN, 0, (struct sockaddr*)&si_other, &slen); // Prima podatke sa mreže
+    recv_len = recvfrom(s, reinterpret_cast<char*>(buf), BUFLEN, 0, (struct sockaddr*)&si_other, &slen);// Prima podatke sa mreže
     if (recv_len == SOCKET_ERROR) {
         throw std::runtime_error("recvfrom() nije uspeo");
     }
@@ -132,12 +85,22 @@ void Dhcp::receivePacket() {
 bool Dhcp::isValidDhcpPacket(byte* buffer) {
     Dhcp_packet dhcp_packet;
     memcpy(&dhcp_packet, buffer, sizeof(Dhcp_packet)); // Kopira podatke u DHCP strukturu
-    // Proverava da li opcije sadrže magični broj DHCP protokola
-    return (dhcp_packet.options[0] == 0x63 && dhcp_packet.options[1] == 0x82 && 
-            dhcp_packet.options[2] == 0x53 && dhcp_packet.options[3] == 0x63);
+
+    // Konvertuje prva četiri bajta opcija u jedan 32-bitni broj
+    uint32_t cookie = (dhcp_packet.options[0] << 24) |
+        (dhcp_packet.options[1] << 16) |
+        (dhcp_packet.options[2] << 8) |
+        dhcp_packet.options[3];
+
+    // Poredi sa definisanom MAGIC_COOKIE vrednošću
+    return cookie == MAGIC_COOKIE;
 }
 
 void Dhcp::handleDhcpPacket() {
+    //if (recv_len < sizeof(Dhcp_packet)) {
+    //    std::cerr << "Primljen paket je previše mali za obradu." << std::endl;
+    //    return; // Napusti metodu ako je paket manji
+    //}
     Dhcp_packet dhcp_packet;
     memcpy(&dhcp_packet, buf, sizeof(Dhcp_packet)); // Kopira primljene podatke u DHCP strukturu
 
@@ -151,26 +114,86 @@ void Dhcp::handleDhcpPacket() {
               << std::hex << (int)dhcp_packet.chaddr[5] << std::endl;
 
     // Obradjuje opcije DHCP paketa
-    parseOptions(dhcp_packet.options);
+    parseOptions(dhcp_packet.options, dhcp_packet);
 }
 
-void Dhcp::parseOptions(u_char options[]) {
+void Dhcp::sendDhcpPacketData(const Dhcp_packet* packet) {
+    sendto(s, reinterpret_cast<const char*>(packet), sizeof(Dhcp_packet), 0, (struct sockaddr*)&si_other, slen);
+}
+
+void Dhcp::sendDhcpOffer(Dhcp_packet* request) {
+    Dhcp_packet offer_packet;
+    memset(&offer_packet, 0, sizeof(offer_packet));
+
+    offer_packet.op = 2; // Odgovor (BOOTREPLY)
+    offer_packet.xid = request->xid; // Koristi isti xid
+    memcpy(offer_packet.chaddr, request->chaddr, 16); // Postavi MAC adresu klijenta
+
+
+    if (inet_pton(AF_INET, "192.168.1.100", &offer_packet.yiaddr) <= 0) {
+        std::cerr << "Greška u konverziji IP adrese." << std::endl;
+        return;
+    } // Dodeljena IP adresa
+
+    strcpy_s(reinterpret_cast<char*>(offer_packet.sname), sizeof(offer_packet.sname), "Simple DHCP Server");
+    strcpy_s(reinterpret_cast<char*>(offer_packet.file), sizeof(offer_packet.file), "Simple DHCP Server.exe");
+
+
+
+    offer_packet.options[0] = 53; // Opcija tipa DHCP
+    offer_packet.options[1] = 1;  // Dužina opcije
+    offer_packet.options[2] = DHCPOFFER; // Tip paketa: DHCPOFFER
+
+    // Dodavanje drugih opcija kao što su subnet maska, router itd.
+    // Primer za subnet masku (255.255.255.0)
+    offer_packet.options[3] = 1; // Opcija subnet maske
+    offer_packet.options[4] = 4; // Dužina opcije
+    offer_packet.options[5] = 255; // subnet maska 255
+    offer_packet.options[6] = 255; // subnet maska 255
+    offer_packet.options[7] = 255; // subnet maska 255
+    offer_packet.options[8] = 0;   // subnet maska 0
+
+    // Signaliziranje kraja opcija
+    offer_packet.options[9] = 255; // Opcija za kraj
+
+    // Slanje DHCPOFFER paketa
+    //sendto(s, (char*)&offer_packet, sizeof(offer_packet), 0, (struct sockaddr*)&si_other, slen);
+
+    sendDhcpPacketData(&offer_packet);
+}
+
+void Dhcp::parseOptions(u_char options[], Dhcp_packet& dhcp_packet) {
     u_char packet_type = options[6]; // Tip DHCP paketa (DISCOVER, REQUEST, itd.)
 
     switch (packet_type) {
-        case DHCPDISCOVER:
-            std::cout << "DHCPDISCOVER" << std::endl;
-            // Implementirati logiku za obradu DHCPDISCOVER paketa
-            break;
+    case DHCPDISCOVER:
+        std::cout << "DHCPDISCOVER" << std::endl;
+        sendDhcpOffer(&dhcp_packet); // Funkcija koja šalje DHCPOFFER
+        break;
 
-        case DHCPREQUEST:
-            std::cout << "DHCPREQUEST" << std::endl;
-            // Implementirati logiku za obradu DHCPREQUEST paketa
-            break;
+    case DHCPREQUEST:
+        std::cout << "DHCPREQUEST" << std::endl;
+        // Implementirati logiku za obradu DHCPREQUEST paketa
+        break;
 
-        default:
-            std::cout << "Nepoznat tip DHCP paketa: " << std::to_string(packet_type) << std::endl;
-            break;
+    case DHCPDECLINE:
+        std::cout << "DHCPDECLINE" << std::endl;
+        // Implementirati logiku za obradu DHCPDECLINE paketa
+        break;
+
+    case DHCPRELEASE:
+        std::cout << "DHCPRELEASE" << std::endl;
+        // Implementirati logiku za obradu DHCPRELEASE paketa
+        break;
+
+    case DHCPINFORM:
+        std::cout << "DHCPINFORM" << std::endl;
+        // Implementirati logiku za obradu DHCPINFORM paketa
+        break;
+
+    default:
+        std::cout << "Nepoznat tip DHCP paketa: " << std::to_string(packet_type) << std::endl;
+        break;
     }
 }
 
