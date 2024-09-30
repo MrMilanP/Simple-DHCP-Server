@@ -52,7 +52,7 @@ void Dhcp::listen() {
         try {
             receivePacket(); // Prima paket
             if (isValidDhcpPacket((byte*)buf)) { // Proverava da li je validan DHCP paket
-                handleDhcpPacket(); // Obradjuje paket
+                handleDhcpPacket((byte*)buf); // Obradjuje paket
             } else {
                 std::cout << "Nevalidan DHCP paket primljen." << std::endl;
             }
@@ -96,13 +96,14 @@ bool Dhcp::isValidDhcpPacket(byte* buffer) {
     return cookie == MAGIC_COOKIE;
 }
 
-void Dhcp::handleDhcpPacket() {
+void Dhcp::handleDhcpPacket(byte* buffer) {
     //if (recv_len < sizeof(Dhcp_packet)) {
     //    std::cerr << "Primljen paket je previše mali za obradu." << std::endl;
     //    return; // Napusti metodu ako je paket manji
     //}
+   //;
     Dhcp_packet dhcp_packet;
-    memcpy(&dhcp_packet, buf, sizeof(Dhcp_packet)); // Kopira primljene podatke u DHCP strukturu
+    memcpy(&dhcp_packet, buffer, sizeof(Dhcp_packet)); // Kopira primljene podatke u DHCP strukturu
 
     // Ispisuje MAC adresu klijenta iz DHCP paketa
     std::cout << "Obrada DHCP paketa, MAC: "
