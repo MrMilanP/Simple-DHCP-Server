@@ -1,17 +1,17 @@
 # Makefile za Simple DHCP Server
 
-# Compiler
+# Definiši varijable za kompajler i opcije
 CXX = g++
-CXXFLAGS = -Wall -Wextra -g
+CXXFLAGS = -std=c++11 -Wall
 
 # Izvorni fajlovi
-SRCS = dhcp.cpp main.cpp
+SRC = simple_dhcp_server.cpp dhcp.cpp
 # Ciljni fajl
-TARGET = simple_dhcp_server
+TARGET = dhcp_server
 
 # Pravilo za pravljenje cilja
-$(TARGET): $(SRCS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS)
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 
 # Čisti projekat
 clean:
