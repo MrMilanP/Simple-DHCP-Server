@@ -39,19 +39,27 @@ Simple DHCP Server je jednostavan DHCP server napisan u C++. Ovaj server podrža
    ```
 2. U root direktorijumu projekta kreirajte Makefile:
    ```Makefile
-   CXX = g++
-   CXXFLAGS = -Wall -Wextra -std=c++11
+   OBJS	= simple_dhcp_server.o dhcp.o
+   SOURCE	= simple_dhcp_server.cpp dhcp.cpp
+   HEADER	= 
+   OUT	= simple_dhcp_server
+   FLAGS	= -g -c -Wall
+   LFLAGS	= 
+   CC	= g++
 
-   all: dhcp_server
+   all:	simple_dhcp_server
 
-   dhcp_server: main.o dhcp.o
-       $(CXX) -o dhcp_server main.o dhcp.o
+   simple_dhcp_server: $(OBJS)
+	   $(CC) -g $(OBJS) -o $(OUT) $(LFLAGS)
 
-   %.o: %.cpp
-       $(CXX) $(CXXFLAGS) -c $< -o $@
+   simple_dhcp_server.o: simple_dhcp_server.cpp
+	   $(CC) $(FLAGS) simple_dhcp_server.cpp 
+
+   dhcp.o: dhcp.cpp
+	   $(CC) $(FLAGS) dhcp.cpp 
 
    clean:
-       rm -f *.o dhcp_server
+	   rm -f $(OBJS) $(OUT)
    ```
 3. Pokrenite `make` da biste izgradili projekat:
    ```bash
