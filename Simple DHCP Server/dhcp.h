@@ -122,13 +122,18 @@ private:
         u_char file[128];         // Naziv boot fajla (Boot File Name)
         u_char options[312];      // Polje za opcionalne parametre (Options)
     };
-
+#ifdef _WIN32
     SOCKET s; // Socket deskriptor
+    WSADATA wsa;
+#else
+    int s; // Socket deskriptor
+    typedef unsigned char byte; // Definiše 'byte' na Linuxu
+#endif
     struct sockaddr_in server, si_other; // Strukture za adresiranje servera i klijenta
     socklen_t slen; // Dužina adrese
     int recv_len; // Dužina primljenog paketa
     uint8_t buf[BUFLEN]; // Bafer za primanje paketa
-    WSADATA wsa;
+
 
     void safeStrncpy(char* dest, const char* src, size_t dest_size);
 
