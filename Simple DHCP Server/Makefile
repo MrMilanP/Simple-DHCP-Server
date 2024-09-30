@@ -1,18 +1,21 @@
-# Makefile za Simple DHCP Server
+OBJS	= simple_dhcp_server.o dhcp.o
+SOURCE	= simple_dhcp_server.cpp dhcp.cpp
+HEADER	= 
+OUT	= simple_dhcp_server
+FLAGS	= -g -c -Wall
+LFLAGS	= 
+CC	= g++
 
-# Definiši varijable za kompajler i opcije
-CXX = g++
-CXXFLAGS = -std=c++11 -Wall
+all:	simple_dhcp_server
 
-# Izvorni fajlovi
-SRC = simple_dhcp_server.cpp dhcp.cpp
-# Ciljni fajl
-TARGET = dhcp_server
+simple_dhcp_server: $(OBJS)
+	$(CC) -g $(OBJS) -o $(OUT) $(LFLAGS)
 
-# Pravilo za pravljenje cilja
-$(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+simple_dhcp_server.o: simple_dhcp_server.cpp
+	$(CC) $(FLAGS) simple_dhcp_server.cpp 
 
-# Čisti projekat
+dhcp.o: dhcp.cpp
+	$(CC) $(FLAGS) dhcp.cpp 
+
 clean:
-	rm -f $(TARGET)
+	rm -f $(OBJS) $(OUT)
