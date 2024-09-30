@@ -10,15 +10,17 @@ typedef int socklen_t; // Definiši socklen_t na Windows-u
 #include <arpa/inet.h>
 #include <cstring>
 #endif
+
 #include <cstdint>
 
 class Dhcp {
 public:
-	Dhcp(); // Konstruktor
-	~Dhcp(); // Destruktor
-	void listen();// Metoda koja osluškuje DHCP pakete
-private:
+    Dhcp(); // Konstruktor
+    ~Dhcp(); // Destruktor
+    void listen(); // Metoda koja osluškuje DHCP pakete
 
+private:
+    // Definicije za DHCP
 #define DHCP_UDP_OVERHEAD (20 + 8)   // IP header + UDP header
 #define DHCP_SNAME_LEN    64
 #define DHCP_FILE_LEN     128
@@ -36,11 +38,10 @@ private:
 
 #define MAGIC_COOKIE 0x63825363  // Uklonjena tačka i zapeta
 
-#define BUFLEN 1500  // Max length of buffer
 #define SERVER_PORT 67	
 #define CLIENT_PORT 68
 
-	// DHCP message types
+// DHCP message types
 #define DHCPDISCOVER       0x01
 #define DHCPOFFER          0x02
 #define DHCPREQUEST        0x03
@@ -97,55 +98,48 @@ private:
 #define DHCP_WPAD             0xfc /* MSIE's Web Proxy Autodiscovery Protocol */
 #define DHCP_END              0xff
 
-#define SERVER_PORT 67 // DHCP port na kojem server sluša
 #define BUFLEN 512 // Maksimalna dužina bafera za primanje podataka
-#define DHCPDISCOVER 1 // Tip DHCP DISCOVER paketa
-#define DHCPREQUEST 3 // Tip DHCP REQUEST paketa
 
-	typedef unsigned char u_char; // Definišemo u_char kao skraćenicu za unsigned char
+    typedef unsigned char u_char; // Definišemo u_char kao skraćenicu za unsigned char
 
-	// Struktura za DHCP paket (uključuje standardna polja DHCP protokola)
-	struct Dhcp_packet {
-		u_char op;                // Operacioni kod poruke / tip poruke
-		u_char htype;             // Tip hardverske adrese
-		u_char hlen;              // Dužina hardverske adrese
-		u_char hops;              // Hops (broj "skokova")
+    // Struktura za DHCP paket (uključuje standardna polja DHCP protokola)
+    struct Dhcp_packet {
+        u_char op;                // Operacioni kod poruke / tip poruke
+        u_char htype;             // Tip hardverske adrese
+        u_char hlen;              // Dužina hardverske adrese
+        u_char hops;              // Hops (broj "skokova")
 
-		uint32_t xid;             // Transaction ID (identifikacija transakcije)
-		uint16_t secs;            // Sekunde protekle od početka
-		uint16_t flags;           // Zastavice (flags)
-		uint32_t ciaddr;          // Klijentova IP adresa (Client IP Address)
-		uint32_t yiaddr;          // "Tvoja" IP adresa (Your IP Address)
-		uint32_t siaddr;          // Sledeća serverska IP adresa (Next Server IP Address)
-		uint32_t giaddr;          // IP adresa relay agenta (Gateway IP Address)
+        uint32_t xid;             // Transaction ID (identifikacija transakcije)
+        uint16_t secs;            // Sekunde protekle od početka
+        uint16_t flags;           // Zastavice (flags)
+        uint32_t ciaddr;          // Klijentova IP adresa (Client IP Address)
+        uint32_t yiaddr;          // "Tvoja" IP adresa (Your IP Address)
+        uint32_t siaddr;          // Sledeća serverska IP adresa (Next Server IP Address)
+        uint32_t giaddr;          // IP adresa relay agenta (Gateway IP Address)
 
-		u_char chaddr[16];        // Hardverska adresa klijenta (Client Hardware Address)
-		u_char sname[64];         // Ime servera (Server Name)
-		u_char file[128];         // Naziv boot fajla (Boot File Name)
-		u_char options[312];      // Polje za opcionalne parametre (Options)
-	};
+        u_char chaddr[16];        // Hardverska adresa klijenta (Client Hardware Address)
+        u_char sname[64];         // Ime servera (Server Name)
+        u_char file[128];         // Naziv boot fajla (Boot File Name)
+        u_char options[312];      // Polje za opcionalne parametre (Options)
+    };
 
-	//Dhcp_packet dhcp_packet;
+    SOCKET s; // Socket deskriptor
+    struct sockaddr_in server, si_other; // Strukture za adresiranje servera i klijenta
+    socklen_t slen; // Dužina adrese
+    int recv_len; // Dužina primljenog paketa
+    uint8_t buf[BUFLEN]; // Bafer za primanje paketa
+    WSADATA wsa;
 
-	SOCKET s;// Socket deskriptor
-	struct sockaddr_in server, si_other; // Strukture za adresiranje servera i klijenta
-	socklen_t slen; // Dužina adrese
-	int recv_len; // Dužina primljenog paketa
-	uint8_t buf[BUFLEN]; // Bafer za primanje paketa
-	WSADATA wsa;
+    void safeStrncpy(char* dest, const char* src, size_t dest_size);
 
-	void sendDhcpOffer(Dhcp_packet* request);
-	void sendDhcpPacketData(const Dhcp_packet* packet);
+    void sendDhcpOffer(Dhcp_packet* request);
+    void sendDhcpPacketData(const Dhcp_packet* packet);
 
+    void receivePacket(); // Metoda za primanje DHCP paketa
+    bool isValidDhcpPacket(byte* buffer); // Proverava da li je validan DHCP paket
+    void handleDhcpPacket(byte* buffer); // Obradjuje primljeni DHCP paket
+    void parseOptions(u_char options[], Dhcp_packet& dhcp_packet); // Parsira opcije iz DHCP paketa
 
-	void receivePacket(); // Metoda za primanje DHCP paketa
-	bool isValidDhcpPacket(byte* buffer); // Proverava da li je validan DHCP paket
-	void handleDhcpPacket(byte* buffer); // Obradjuje primljeni DHCP paket
-	void parseOptions(u_char options[], Dhcp_packet& dhcp_packet); // Parsira opcije iz DHCP paketa
-
-	void initializeSockets(); // Inicijalizuje socket (specifično za Windows)
-	void cleanupSockets(); // Čisti socket resurse (specifično za Windows)
+    void initializeSockets(); // Inicijalizuje socket (specifično za Windows)
+    void cleanupSockets(); // Čisti socket resurse (specifično za Windows)
 };
-
-
-

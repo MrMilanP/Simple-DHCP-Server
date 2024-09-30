@@ -3,29 +3,28 @@
 #include <stdexcept>
 #include <string>
 #include <sstream>
-#include <cstring>
+#include <cstdint>
 
 #ifdef _WIN32
-    #include <ws2tcpip.h>
-    #include <winsock2.h>
-    #include <cstdint>
-    #pragma comment(lib, "ws2_32.lib") // Linkovanje Winsock biblioteke na Windows-u
-    typedef int socklen_t;  // Definisanje socklen_t za kompatibilnost sa Windows-om
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib") // Linkovanje Winsock biblioteke
+typedef int socklen_t;  // Definisanje socklen_t za Windows
 #else
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <unistd.h>
-    #define INVALID_SOCKET (-1) // Definisanje INVALID_SOCKET za kompatibilnost
-    #define SOCKET_ERROR   (-1) // Definisanje SOCKET_ERROR za kompatibilnost
-    typedef int SOCKET; // Na Linux-u socket je samo int, pa definisemo SOCKET kao int
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#define INVALID_SOCKET (-1) // Definisanje INVALID_SOCKET za Linux
+#define SOCKET_ERROR   (-1) // Definisanje SOCKET_ERROR za Linux
+typedef int SOCKET; // Na Linux-u socket je samo int
 #endif
 
 #include "dhcp.h"
 
 Dhcp::Dhcp() {
     slen = sizeof(si_other); // Postavlja dužinu strukture adrese klijenta
-    initializeSockets(); // Inicijalizuje socket (ako je na Windows-u)
+    initializeSockets(); // Inicijalizuje socket
 
     // Kreira UDP socket
     s = socket(AF_INET, SOCK_DGRAM, 0);
@@ -53,10 +52,12 @@ void Dhcp::listen() {
             receivePacket(); // Prima paket
             if (isValidDhcpPacket((byte*)buf)) { // Proverava da li je validan DHCP paket
                 handleDhcpPacket((byte*)buf); // Obradjuje paket
-            } else {
+            }
+            else {
                 std::cout << "Nevalidan DHCP paket primljen." << std::endl;
             }
-        } catch (const std::runtime_error& e) {
+        }
+        catch (const std::runtime_error& e) {
             std::cerr << "Greška: " << e.what() << std::endl; // Ispisuje grešku
         }
     }
@@ -74,12 +75,11 @@ std::string ipToString(struct in_addr ipAddr) {
 
 void Dhcp::receivePacket() {
     memset(buf, '\0', BUFLEN); // Briše prethodni sadržaj bafera
-    recv_len = recvfrom(s, reinterpret_cast<char*>(buf), BUFLEN, 0, (struct sockaddr*)&si_other, &slen);// Prima podatke sa mreže
+    recv_len = recvfrom(s, reinterpret_cast<char*>(buf), BUFLEN, 0, (struct sockaddr*)&si_other, &slen); // Prima podatke sa mreže
     if (recv_len == SOCKET_ERROR) {
         throw std::runtime_error("recvfrom() nije uspeo");
     }
     std::cout << "Paket primljen od " << ipToString(si_other.sin_addr) << ":" << ntohs(si_other.sin_port) << std::endl;
-
 }
 
 bool Dhcp::isValidDhcpPacket(byte* buffer) {
@@ -97,22 +97,17 @@ bool Dhcp::isValidDhcpPacket(byte* buffer) {
 }
 
 void Dhcp::handleDhcpPacket(byte* buffer) {
-    //if (recv_len < sizeof(Dhcp_packet)) {
-    //    std::cerr << "Primljen paket je previše mali za obradu." << std::endl;
-    //    return; // Napusti metodu ako je paket manji
-    //}
-   //;
     Dhcp_packet dhcp_packet;
     memcpy(&dhcp_packet, buffer, sizeof(Dhcp_packet)); // Kopira primljene podatke u DHCP strukturu
 
     // Ispisuje MAC adresu klijenta iz DHCP paketa
     std::cout << "Obrada DHCP paketa, MAC: "
-              << std::hex << (int)dhcp_packet.chaddr[0] << ":" 
-              << std::hex << (int)dhcp_packet.chaddr[1] << ":" 
-              << std::hex << (int)dhcp_packet.chaddr[2] << ":" 
-              << std::hex << (int)dhcp_packet.chaddr[3] << ":"
-              << std::hex << (int)dhcp_packet.chaddr[4] << ":"
-              << std::hex << (int)dhcp_packet.chaddr[5] << std::endl;
+        << std::hex << (int)dhcp_packet.chaddr[0] << ":"
+        << std::hex << (int)dhcp_packet.chaddr[1] << ":"
+        << std::hex << (int)dhcp_packet.chaddr[2] << ":"
+        << std::hex << (int)dhcp_packet.chaddr[3] << ":"
+        << std::hex << (int)dhcp_packet.chaddr[4] << ":"
+        << std::hex << (int)dhcp_packet.chaddr[5] << std::endl;
 
     // Obradjuje opcije DHCP paketa
     parseOptions(dhcp_packet.options, dhcp_packet);
@@ -120,6 +115,17 @@ void Dhcp::handleDhcpPacket(byte* buffer) {
 
 void Dhcp::sendDhcpPacketData(const Dhcp_packet* packet) {
     sendto(s, reinterpret_cast<const char*>(packet), sizeof(Dhcp_packet), 0, (struct sockaddr*)&si_other, slen);
+}
+
+
+// Multiplatformska funkcija za kopiranje stringa
+void Dhcp::safeStrncpy(char* dest, const char* src, size_t dest_size) {
+#ifdef _WIN32
+    strncpy_s(dest, dest_size, src, _TRUNCATE);
+#else
+    strncpy(dest, src, dest_size - 1); // Ostavlja mesto za null terminator
+    dest[dest_size - 1] = '\0'; // Osigurava da je string terminiran
+#endif
 }
 
 void Dhcp::sendDhcpOffer(Dhcp_packet* request) {
@@ -130,23 +136,21 @@ void Dhcp::sendDhcpOffer(Dhcp_packet* request) {
     offer_packet.xid = request->xid; // Koristi isti xid
     memcpy(offer_packet.chaddr, request->chaddr, 16); // Postavi MAC adresu klijenta
 
-
     if (inet_pton(AF_INET, "192.168.1.100", &offer_packet.yiaddr) <= 0) {
         std::cerr << "Greška u konverziji IP adrese." << std::endl;
         return;
     } // Dodeljena IP adresa
 
-    strcpy_s(reinterpret_cast<char*>(offer_packet.sname), sizeof(offer_packet.sname), "Simple DHCP Server");
-    strcpy_s(reinterpret_cast<char*>(offer_packet.file), sizeof(offer_packet.file), "Simple DHCP Server.exe");
-
-
+    //strncpy(reinterpret_cast<char*>(offer_packet.sname), "Simple DHCP Server", sizeof(offer_packet.sname) - 1);
+    //strncpy(reinterpret_cast<char*>(offer_packet.file), "Simple DHCP Server.exe", sizeof(offer_packet.file) - 1);
+    safeStrncpy(reinterpret_cast<char*>(offer_packet.sname), "Simple DHCP Server", sizeof(offer_packet.sname));
+    safeStrncpy(reinterpret_cast<char*>(offer_packet.file), "Simple DHCP Server.exe", sizeof(offer_packet.file));
 
     offer_packet.options[0] = 53; // Opcija tipa DHCP
     offer_packet.options[1] = 1;  // Dužina opcije
     offer_packet.options[2] = DHCPOFFER; // Tip paketa: DHCPOFFER
 
     // Dodavanje drugih opcija kao što su subnet maska, router itd.
-    // Primer za subnet masku (255.255.255.0)
     offer_packet.options[3] = 1; // Opcija subnet maske
     offer_packet.options[4] = 4; // Dužina opcije
     offer_packet.options[5] = 255; // subnet maska 255
@@ -158,8 +162,6 @@ void Dhcp::sendDhcpOffer(Dhcp_packet* request) {
     offer_packet.options[9] = 255; // Opcija za kraj
 
     // Slanje DHCPOFFER paketa
-    //sendto(s, (char*)&offer_packet, sizeof(offer_packet), 0, (struct sockaddr*)&si_other, slen);
-
     sendDhcpPacketData(&offer_packet);
 }
 
@@ -202,9 +204,11 @@ void Dhcp::initializeSockets() {
 #ifdef _WIN32
     WSADATA wsa;
     std::cout << "Inicijalizacija Winsock-a..." << std::endl;
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) { // Inicijalizuje Winsock na Windows-u
-        throw std::runtime_error("Winsock inicijalizacija nije uspela");
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        throw std::runtime_error("Inicijalizacija Winsock-a nije uspela");
     }
+#else
+    std::cout << "Linux soketi su već inicijalizovani." << std::endl;
 #endif
 }
 
