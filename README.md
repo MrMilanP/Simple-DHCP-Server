@@ -71,7 +71,7 @@ Simple DHCP Server je jednostavan DHCP server napisan u C++. Ovaj server podrža
 Pokrenite server iz komandne linije:
 
 ```bash
-./dhcp_server
+sudo ./simple_dhcp_server
 ```
 
 Server će slušati na portu 67 za dolazne DHCP zahteve.
